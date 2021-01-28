@@ -290,13 +290,15 @@ This can be directly extended as IQA for LIVE
 
 # after modifying CorrelationWithMeanLoss 
 ./Main.py --ckpt_path checkpoint-live-corr-n-03 -n --batch_size 64 --image_size 400 --crop_test --trainset /data_partition/yang/new_exp_dbs/databaserelease2/ptraining/ --testset /data_partition/yang/new_exp_dbs/databaserelease2/ptesting/ --lossfn MCORR --eval_lossfn MAE --test_correlation --decay_interval 30 --max_epochs 400 --epochs_per_eval 5 --epochs_per_save 5 -f --lr 0.0001
-# SRCC 0.99, PLCC: 0.99
+# SRCC
+
+./Main.py --ckpt_path checkpoint-live-corr-n-05 -n --batch_size 64 --image_size 400 --crop_test --trainset /data_partition/yang/new_exp_dbs/databaserelease2/ptraining/ --testset /data_partition/yang/new_exp_dbs/databaserelease2/ptesting/ --lossfn MCORR --eval_lossfn MAE --test_correlation --decay_interval 30 --max_epochs 400 --epochs_per_eval 5 --epochs_per_save 5 -f --lr 0.0001
 
 ./Main.py --ckpt_path checkpoint-live-corr-n-04 -n --batch_size 64 --image_size 400 --crop_test --trainset /data_partition/yang/new_exp_dbs/databaserelease2/ptraining/ --testset /data_partition/yang/new_exp_dbs/databaserelease2/ptesting/ --lossfn MCORR --eval_lossfn MAE --test_correlation --decay_interval 30 --max_epochs 400 --epochs_per_eval 5 --epochs_per_save 5 -f --lr 0.0001
 
 # Try another partition schema
 ./Main.py --ckpt_path checkpoint-live-corr-n-03-2 -n --batch_size 64 --image_size 400 --crop_test --trainset /data_partition/yang/new_exp_dbs/databaserelease2/ptraining_2/ --testset /data_partition/yang/new_exp_dbs/databaserelease2/ptesting_2/ --lossfn MCORR --eval_lossfn MAE --test_correlation --decay_interval 30 --max_epochs 400 --epochs_per_eval 5 --epochs_per_save 5 -f --lr 0.0001
-# SRCC 0.982644, PLCC: 0.974200
+# SRCC 
 
 ```
 

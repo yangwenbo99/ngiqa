@@ -51,7 +51,7 @@ class ImageDataset(Dataset):
         if file_list is None:
             file_list = os.path.join(img_dir, 'file_list.tsv')
         self.data = pd.read_csv(file_list, sep='\t', header=None)
-        print('%d csv data successfully loaded!' % self.__len__())
+        print('%d tsv data rows are successfully loaded!' % self.__len__())
         self.img_dir = img_dir
         self.transform = transform
         self.loader = get_loader()

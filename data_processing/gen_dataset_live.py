@@ -1,9 +1,6 @@
 #!/bin/env python3
 '''
-This file is for generating dataset for this experiement from the live dataset.
-
-The source dataset should have some high quality images (preferrably Waterloo
-Exploration Database by Ma et al.).
+This file is for generating dataset for this experiement from the LIVE dataset.
 '''
 
 import argparse
@@ -28,9 +25,6 @@ def parse_config():
 
     parser.add_argument("lst", type=str, help='The filelist the images',)
     parser.add_argument("dir", type=str, help='The source directory containing the images',)
-    parser.add_argument('-m', "--maxrad", type=float,
-            default=30.0,
-            help='The maximum radius of blur')
     parser.add_argument('-v', "--verbose", action='store_true')
 
     return parser.parse_args()
