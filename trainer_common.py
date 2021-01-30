@@ -12,6 +12,7 @@ from torchvision import transforms
 import scipy.stats
 
 from py_join import Enumerable
+from transforms import AdaptiveCrop
 
 # Note the difference between this implementaiton and the original
 from BaseCNN import BaseCNN
@@ -47,7 +48,7 @@ class Trainer(object):
         self.config = config
 
         train_transform_list = [
-            transforms.RandomCrop(config.image_size),
+            AdaptiveCrop(config.image_size, config.image_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()
         ]
@@ -56,7 +57,7 @@ class Trainer(object):
         ]
         if config.crop_test:
             test_transform_list = \
-                    [ transforms.RandomCrop(config.image_size) ] +  \
+                    [ AdaptiveCrop(config.image_size, config.image_size) ] +  \
                     test_transform_list
 
 
@@ -72,7 +73,7 @@ class Trainer(object):
         self.test_transform = transforms.Compose(test_transform_list)
 
         self.train_batch_size = config.batch_size
-        self.test_batch_size = 1
+        self.test_batch_size = config.test_batch_size
 
         self.device = torch.device(config.device)
 
@@ -140,6 +141,10 @@ class Trainer(object):
             return losses.CorrelationWithMAELoss()
         elif desc.upper().startswith('SCORR'):
             return losses.SSIMCorrelationLoss()
+        elif desc.upper().startswith('L2RR'):
+            return losses.BatchedL2RLoss()
+        elif desc.upper().startswith('EL2R'):
+            return losses.BatchedL2RLoss(p=True)
         else:
             return losses.model_loss()
 
@@ -310,6 +315,8 @@ class Trainer(object):
     def eval_common(self, loader=None):
         if loader is None:
             loader = self.test_loader
+        ys = []
+        yps = []
         losses = []
         pairs = []
         ypairs = []
@@ -320,21 +327,24 @@ class Trainer(object):
                 y = y.to(self.device)
                 yp = self.model(x)
                 loss = self.eval_loss(y, yp)
+                ys += list(y.flatten().detach().cpu())
+                yps += list(yp.flatten().detach().cpu())
                 losses.append(loss.detach())
-                pairs.append((y.detach().cpu(), loss.detach().cpu()))
-                ypairs.append((y.detach().cpu(), yp.detach().cpu()))
+        #! ypairs.append((y.detach().cpu(), yp.detach().cpu()))
 
-        if self.config.verbose:
+        if self.config.verbose > 2:
+            for y, loss in zip(ys, losses):
+                pairs.append((y.detach().cpu(), loss.detach().cpu()))
             groups = self._group(pairs, SEATS)
             for it in groups:
                 print('    Group {: 4} (length {: 5}): {:6f}'.format(it[0], it[1], it[2]))
 
         if self.config.test_correlation or self.config.train_correlation:
-            x = [p[0] for p in ypairs]
-            y = [p[1] for p in ypairs]
+            # print(ys)
+            # print(yps)
             # print(pairs)
-            srcc = scipy.stats.mstats.spearmanr(x=x, y=y)[0]
-            plcc = scipy.stats.mstats.pearsonr(x=x, y=y)[0]
+            srcc = scipy.stats.mstats.spearmanr(x=ys, y=yps)[0]
+            plcc = scipy.stats.mstats.pearsonr(x=ys, y=yps)[0]
             print('SRCC {:.6f}, PLCC: {:.6f}'.format(srcc, plcc))
 
         return sum(losses) / len(losses)

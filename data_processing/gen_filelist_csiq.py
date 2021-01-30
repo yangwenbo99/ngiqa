@@ -1,6 +1,6 @@
 #!/bin/env python3
 '''
-This file is for generating dataset for this experiement from the LIVE dataset.
+This file is for generating dataset for this experiement from the CSIQ dataset.
 '''
 
 import argparse
@@ -23,8 +23,8 @@ TRAINING_REF_NUM = 23
 def parse_config():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("lst", type=str, help='The filelist the images',)
-    parser.add_argument("dir", type=str, help='The source directory containing the images',)
+    parser.add_argument("dir", type=str,
+            help='Directory to CSIQ\'s release')
     parser.add_argument('-v', "--verbose", action='store_true')
     parser.add_argument('-n', "--negate", action='store_true',
             help='negate the score')
@@ -59,3 +59,4 @@ if __name__ == '__main__':
     global config
     config = parse_config()
     main(config)
+

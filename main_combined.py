@@ -1,7 +1,7 @@
 #!/bin/env python3
 
 import configargparse as argparse
-import model
+import model_combined as model
 import os
 
 
@@ -18,7 +18,6 @@ def parse_config():
     parser.add_argument("--representation", type=str, default="BCNN")
     parser.add_argument("--phase1", type=int, default=2,
             help='How many epoches should be used for phase 1 training (this is only applicable for some models)')
-    parser.add_argument("--alternative_train_loss", action='store_true')
     parser.add_argument("--lossfn", type=str, default='default')
     parser.add_argument("--eval_lossfn", type=str, default='default')
 
@@ -29,12 +28,24 @@ def parse_config():
     parser.add_argument('-f', "--fresh", action='store_true', help='not to resume')
     parser.add_argument("--seed", type=int, default=19901116)
 
-    parser.add_argument("--trainset", type=str, default="../datasets/waterloo_blur/training/")
-    parser.add_argument("--testset", type=str,
-            default="../datasets/waterloo_blur/test128/",
-            help="There is no means to adjust the size in the test set, one must ensure it")
+    parser.add_argument("--train_live", type=str)
+    parser.add_argument("--train_csiq", type=str)
+    parser.add_argument("--train_kadid", type=str)
+    parser.add_argument("--train_clive", type=str)
+    parser.add_argument("--train_koniq", type=str)
+    parser.add_argument("--train_bid", type=str)
 
-    parser.add_argument('--ckpt_path', default='./checkpoint/', type=str,
+    parser.add_argument("--test_live", type=str,
+            help="There is no means to adjust the size in the test set, one must ensure it by either choosing models or process sets")
+    parser.add_argument("--test_csiq", type=str)
+    parser.add_argument("--test_kadid", type=str)
+    parser.add_argument("--test_clive", type=str)
+    parser.add_argument("--test_koniq", type=str)
+    parser.add_argument("--test_bid", type=str)
+
+    parser.add_argument("--repeat_dataset", action='store_true', help='Repeat datasets')
+
+    parser.add_argument('--ckpt_path', default='./checkpoint_combined/', type=str,
                         metavar='PATH', help='path to checkpoints')
     parser.add_argument('--ckpt', default=None, type=str, help='name of the checkpoint to load')
 
@@ -69,15 +80,14 @@ def parse_config():
         config.resume = False
     return config
 
+
 def main(cfg):
     t = model.Trainer(cfg)
-    # print('loader length:', len(t.train_loader))
     if cfg.train:
         t.fit()
     else:
         if config.train_correlation:
-            print('Test train')
-            print(t.eval(loader=t.train_test_loader))
+            print(t.eval_train())
         else:
             print(t.eval())
 

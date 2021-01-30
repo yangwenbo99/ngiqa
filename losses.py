@@ -1,4 +1,5 @@
 import torch
+import math
 
 LOSS_N = 1
 
@@ -138,6 +139,42 @@ class CorrelationWithMAELoss(torch.nn.Module):
         # return - torch.log(S) + 0.03 * torch.abs(my - myp)
         return - S + 0.1 * torch.sum(torch.abs(y - yp))
 
+
+class BatchedL2RLoss(torch.nn.Module):
+
+    def __init__(self, p=False):
+        super(BatchedL2RLoss, self).__init__()
+        self.p = p
+
+    def squarize(self, x):
+        n = x.shape[0]
+        x_usq = x.unsqueeze(-1)                # n * 0
+        x_expanded = x_usq.expand(n, n)
+        return x_expanded
+
+    SQRT2 = math.sqrt(2)
+
+    def cdf(self, x):
+        return (1 + torch.erf(x / self.SQRT2)) / 2
+
+
+    def forward(self, y, yp):
+        eps = 0.00001
+        y = y.flatten()
+        yp = yp.flatten()
+
+        y_expanded = self.squarize(y)
+        yp_expanded = self.squarize(yp)
+
+        tags = torch.sign(y_expanded - y_expanded.t())
+
+        objcdf = self.cdf((yp_expanded - yp_expanded.t()))
+        objx = torch.log(objcdf + eps) * tags
+        objs = torch.mean(objx.triu(1))
+        if self.p:
+            objs = torch.exp(objs)
+
+        return - objs
 
 
 class AlternativeLoss(torch.nn.Module):
