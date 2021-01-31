@@ -139,6 +139,37 @@ class CorrelationWithMAELoss(torch.nn.Module):
         # return - torch.log(S) + 0.03 * torch.abs(my - myp)
         return - S + 0.1 * torch.sum(torch.abs(y - yp))
 
+class PairwiseL2RLoss(torch.nn.Module):
+
+    def __init__(self, p=False):
+        super(PairwiseL2RLoss, self).__init__()
+        self.p = p
+
+    SQRT2 = math.sqrt(2)
+
+    def cdf(self, x):
+        return (1 + torch.erf(x / self.SQRT2)) / 2
+
+    def forward(self, y, yp):
+        eps = 0.00001
+        y = y.flatten()
+        yp = yp.flatten()
+        n = int(y.shape[0])
+        k = n // 2
+        y1, y2 = y[:k], y[k:2*k]
+        yp1, yp2 = yp[:k], yp[k:2*k]
+
+        labels = torch.sign(yp1 - yp2)
+
+        objcdf = self.cdf(labels * (y1 - y2))
+        objx = torch.log(objcdf + eps)
+        objs = torch.mean(objx)
+        if self.p:
+            objs = torch.exp(objs)
+
+        return - objs
+
+
 
 class BatchedL2RLoss(torch.nn.Module):
 

@@ -127,6 +127,11 @@ class Trainer(object):
 
         self.log_file = config.log_file
 
+        if config.adversarial:
+            self.attacker = self._get_attacker(config.adversarial)
+        else:
+            self.attacker = None
+
 
     def _get_loss_fn(self, desc: str):
         if desc.upper() == 'MAE':
@@ -145,6 +150,8 @@ class Trainer(object):
             return losses.BatchedL2RLoss()
         elif desc.upper().startswith('EL2R'):
             return losses.BatchedL2RLoss(p=True)
+        elif desc.upper().startswith('PL2R'):
+            return losses.PairwiseL2RLoss()
         else:
             return losses.model_loss()
 
@@ -195,6 +202,13 @@ class Trainer(object):
     def _save_checkpoint(state, filename='checkpoint.pth.tar'):
         torch.save(state, filename)
 
+    def _get_attacker(self, desc: str):
+        if type(desc) is str:
+            if desc.upper().startswith('FGSM'):
+                return FGSMAttacker(self.config.adversarial_radius)
+            if desc.upper().startswith('LINF'):
+                return LimitedLinfAttacker(self.config.adversarial_radius)
+        return None
 
     def _load_checkpoint(self, ckpt):
         if os.path.isfile(ckpt):
@@ -243,6 +257,10 @@ class Trainer(object):
             x, y = sample_batched['I'], sample_batched['y']
             x = x.to(self.device)
             y = y.to(self.device)
+
+            if self.attacker:
+                x = self.attacker(self.model, x, y, self.loss_fn)
+
             self.optimizer.zero_grad()
             yp = self.model(x)
             self.loss = self.loss_fn(y, yp)
@@ -315,11 +333,11 @@ class Trainer(object):
     def eval_common(self, loader=None):
         if loader is None:
             loader = self.test_loader
+        self.model.eval()
         ys = []
         yps = []
         losses = []
         pairs = []
-        ypairs = []
         with torch.no_grad():
             for step, sample_batched in enumerate(loader, 0):
                 x, y = sample_batched['I'], sample_batched['y']
@@ -331,6 +349,10 @@ class Trainer(object):
                 yps += list(yp.flatten().detach().cpu())
                 losses.append(loss.detach())
         #! ypairs.append((y.detach().cpu(), yp.detach().cpu()))
+
+        if self.config.debug:
+            for y, yp in zip(ys, yps):
+                print('{:.6f}, {:.6f}'.format(y, yp))
 
         if self.config.verbose > 2:
             for y, loss in zip(ys, losses):
@@ -347,10 +369,60 @@ class Trainer(object):
             plcc = scipy.stats.mstats.pearsonr(x=ys, y=yps)[0]
             print('SRCC {:.6f}, PLCC: {:.6f}'.format(srcc, plcc))
 
+        self.model.train()
+
         return sum(losses) / len(losses)
 
     def eval(self, loader=None):
         return self.eval_common(loader)
+
+    def eval_adversarial(self, loader=None):
+        if loader is None:
+            loader = self.test_loader
+
+        self.model.eval()
+        ys = []
+        yps = []
+        yphs = []
+        ypls = []
+        losses = []
+        pairs = []
+        with torch.no_grad():
+            for step, sample_batched in enumerate(loader, 0):
+                x, y = sample_batched['I'], sample_batched['y']
+                x = x.to(self.device)
+                y = y.to(self.device)
+                yp = self.model(x)
+                xh, xl = self.attacker.attack_test(self.model, x, y)
+                yph = self.model(xh)
+                ypl = self.model(xl)
+                yps += list(yp.flatten().detach().cpu())
+                yphs += list(yph.flatten().detach().cpu())
+                ypls  += list(ypl.flatten().detach().cpu())
+                ys += list(y.flatten().detach().cpu())
+
+        n = len(ys)
+        print('Total:', n * (n - 1) / 2)
+        correct = [
+                (i, j)
+                for i in range(n)
+                for j in range(n)
+                if ys[i] < ys[j] and yps[i] < yps[j]
+                ]
+        inverted = [
+                (i, j)
+                for i, j in correct
+                if yphs[i] > ypls[j]
+                ]
+        print('Correct:', len(correct))
+        print('Inverted:', len(inverted))
+
+        if self.config.debug:
+            for y, yp, yph, ypl in zip(ys, yps, yphs, ypls):
+                print('{:.6f}, {:.6f}, {:.6f}, {:.6f}'.format(
+                    y, yp, yph, ypl))
+
+        self.model.train()
 
 
 class SimpleModel(nn.Module):
@@ -387,3 +459,97 @@ class SimpleModel(nn.Module):
         r = self.nn(x)
         return r.unsqueeze(dim=-1)
 
+class FGSMAttacker():
+    def __init__(self, radius):
+        self.radius = radius
+
+    def __call__(self, model, input_var, target_var, criterion):
+        input_var.requires_grad_(True)
+        if input_var.grad is not None:
+            input_var.grad.data.zero_()
+        output = model(input_var)
+        loss = criterion(output, target_var)
+        loss.backward()
+        move = torch.sign(input_var.grad.detach()) * self.radius
+        input_var = input_var.detach() + move
+        return input_var
+
+    def attack_test(self, model, input_var, target_var):
+        def pf(x, y):
+            return x.sum()
+        def nf(x, y):
+            return -x.sum()
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self(model, input_var, target_var, pf)
+        l = self(model, input_var, target_var, nf)
+
+        torch.set_grad_enabled(prev)
+        return h, l
+
+
+class LimitedLinfAttacker():
+    def __init__(self, tol, lr=1, iter=0, his=8):
+        self._tol = tol
+        self._lr = lr
+        self._num_iter = iter if iter != 0 else 10
+        self._his = his
+
+    def __call__(self, model, img, target_var, criterion):
+        tol = self._tol
+        lr = self._lr
+
+        hist_vars = [img]
+        hist_vals = [model(img)[0].clone().detach()]
+        ori_img = img.clone()
+        lower_bound = ori_img - tol
+        upper_bound = ori_img + tol
+
+        for i in range(self._num_iter):
+            img.requires_grad_(True)
+            if img.grad is not None:
+                img.grad.data.zero_()
+            output = model(img)
+            loss = criterion(output, target_var)
+            loss.backward()
+
+            yp = img.grad.clone().detach()
+            # TODO: use sum, instead of mean here
+            ypabs = yp.abs()
+            ypabs[(ypabs > 0.003 * tol) & (ypabs < 0.1 * tol)] = 0.1 * tol
+            # Empirically, / step
+            yp = yp.sign() * ypabs
+            # lyp = torch.norm(yp.clamp(-self._lr, self._lr))
+            img.requires_grad_(False)
+            simg = img + lr * yp # / lyp
+            simg = torch.max(simg, lower_bound)
+            simg = torch.min(simg, upper_bound)
+            img = simg
+
+            with torch.no_grad():
+                score = model(img)[0]
+                hist_vals.append(score)
+                hist_vars.append(img)
+                if len(hist_vals) > self._his:
+                    hist_vals.pop(0)
+                    hist_vars.pop(0)
+        selected_i = 0
+        for i in range(self._his):
+            if self._lr * hist_vals[i] > self._lr * hist_vals[selected_i]:
+                selected_i = i
+        return hist_vars[selected_i]
+
+    def attack_test(self, model, input_var, target_var):
+        def pf(x, y):
+            return x.sum()
+        def nf(x, y):
+            return -x.sum()
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self(model, input_var, target_var, pf)
+        l = self(model, input_var, target_var, nf)
+
+        torch.set_grad_enabled(prev)
+        return h, l

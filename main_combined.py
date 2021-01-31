@@ -53,6 +53,11 @@ def parse_config():
             help='Whether to normalise the input')
     parser.add_argument('-v', '--verbose', action='store_true')
 
+    parser.add_argument('--adversarial', default=None, type=str,
+            help='If set, the adversarial attack method will be used, currently only support FGSM')
+    parser.add_argument('--adversarial_radius', default=0., type=float,
+            help='The radius')
+
     # parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--test_batch_size", type=int, default=1)
@@ -70,6 +75,10 @@ def parse_config():
             help='If set, correlation factors will also be shown')
     parser.add_argument("--train_correlation", action='store_true',
             help='If set, correlation factors will also be shown')
+    parser.add_argument("--eval_adversarial", action='store_true',
+            help='If set, pair-wise accuracy will be tested')
+
+    parser.add_argument("--debug", action='store_true')
 
     parser.add_argument("--log_file", type=str, default='./train_log.txt')
 

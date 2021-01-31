@@ -38,6 +38,11 @@ def parse_config():
                         metavar='PATH', help='path to checkpoints')
     parser.add_argument('--ckpt', default=None, type=str, help='name of the checkpoint to load')
 
+    parser.add_argument('--adversarial', default=None, type=str,
+            help='If set, the adversarial attack method will be used, currently only support FGSM')
+    parser.add_argument('--adversarial_radius', default=0., type=float,
+            help='The radius')
+
     parser.add_argument('-n', '--normalize', action='store_true',
             help='Whether to normalise the input')
     parser.add_argument('-v', '--verbose', action='store_true')
@@ -55,10 +60,14 @@ def parse_config():
     parser.add_argument("--epochs_per_eval", type=int, default=1)
     parser.add_argument("--epochs_per_save", type=int, default=1)
 
-    parser.add_argument("--test_correlation", action='store_true',
-            help='If set, correlation factors will also be shown')
     parser.add_argument("--train_correlation", action='store_true',
             help='If set, correlation factors will also be shown')
+    parser.add_argument("--test_correlation", action='store_true',
+            help='If set, correlation factors will also be shown')
+    parser.add_argument("--eval_adversarial", action='store_true',
+            help='If set, pair-wise accuracy will be tested')
+
+    parser.add_argument("--debug", action='store_true')
 
     parser.add_argument("--log_file", type=str, default='./train_log.txt')
 
@@ -75,7 +84,10 @@ def main(cfg):
     if cfg.train:
         t.fit()
     else:
-        if config.train_correlation:
+        if config.eval_adversarial:
+            print('Evaluating adversarial')
+            t.eval_adversarial()
+        elif config.train_correlation:
             print('Test train')
             print(t.eval(loader=t.train_test_loader))
         else:
