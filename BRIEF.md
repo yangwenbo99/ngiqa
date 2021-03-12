@@ -41,6 +41,6 @@ This model is not perfect, and has some potential for improvements, for example,
 
 Batched PLCC used together with FGSM makes a model robust to both FGSM and the stronger search method (should be stronger than PGD methods) 
 
-However, Vanilla L2R (as defined in `README.md`) used with FGSM does not enhance robustness at all. 
+However, Vanilla L2R (as defined in `README.md`) used with FGSM does not enhance robustness at all, nor does it help with the images in the training set. 
 
 Batched SRCC with FGSM also helps robustness while batched L2R does not. 
