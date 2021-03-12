@@ -12,8 +12,11 @@ class BaseCNN(nn.Module):
             self.backbone = models.resnet18(pretrained=True)
         elif self.config.backbone == 'resnet34':
             self.backbone = models.resnet34(pretrained=True)
-        # elif self.config.backbone == 'resnet50':
-        #     self.backbone = models.resnet50(pretrained=True)
+        elif self.config.backbone == 'resnet50':
+             self.backbone = models.resnet50(pretrained=True)
+        #     self.fc = nn.Linear(2048, 1)
+        # elif self.config.backbone == 'resnet101':
+        #     self.backbone = models.resnet101(pretrained=True)
         #     self.fc = nn.Linear(2048, 1)
         outdim = 1
         if config.representation == 'BCNN':

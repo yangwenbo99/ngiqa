@@ -173,6 +173,8 @@ tags
 
 
 checkpoint-*
+checkpoint_*
+adv_checkpoints
 train_log.txt
 test/
 tmp.md

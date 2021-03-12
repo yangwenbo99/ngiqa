@@ -1,5 +1,6 @@
 import torch
 import math
+from fast_soft_sort.pytorch_ops import soft_rank
 
 LOSS_N = 1
 
@@ -159,9 +160,9 @@ class PairwiseL2RLoss(torch.nn.Module):
         y1, y2 = y[:k], y[k:2*k]
         yp1, yp2 = yp[:k], yp[k:2*k]
 
-        labels = torch.sign(yp1 - yp2)
+        labels = torch.sign(y1 - y2)
 
-        objcdf = self.cdf(labels * (y1 - y2))
+        objcdf = self.cdf(labels * (yp1 - yp2))
         objx = torch.log(objcdf + eps)
         objs = torch.mean(objx)
         if self.p:
@@ -217,4 +218,80 @@ class AlternativeLoss(torch.nn.Module):
         # return torch.mean((yp - y) ** 2)
         return torch.mean(torch.abs(yp - y) / (y + 1))
 
+
+class BatchedSRCCLoss(torch.nn.Module):
+
+    def __init__(self, regularization_strength=1.5):
+        super(BatchedSRCCLoss, self).__init__()
+        self.regularization_strength = regularization_strength
+
+    def forward(self, y, yp):
+        eps = 0.00001
+        y = y.flatten().unsqueeze(0)
+        yp = yp.flatten().unsqueeze(0)
+
+        # Rank them
+        # print(y)
+        y = soft_rank(y, regularization_strength=0.1).squeeze()
+        yp = soft_rank(yp,
+                regularization_strength=self.regularization_strength).squeeze()
+        # print(y, yp)
+
+        covm = cov(y, yp)
+        s2y = covm[0, 0]
+        s2yp = covm[1, 1]
+        syyp = covm[0, 1]
+
+        S = (syyp / (torch.sqrt(s2y) * torch.sqrt(s2yp) + eps))
+        # U = (my * myp) / (my**2 + myp**2 + eps)
+
+        return - S # * U
+
+'''
+class ModelGradientL1Regularizer(torch.nn.Module):
+
+    def __init__(self, regularization_strength=5e-2):
+        super(ModelGradientL1Regularizer, self).__init__()
+        self.regularization_strength = regularization_strength
+
+    def forward(self, model, lossfn, x, y):
+        yp = model(x)
+        yp.backward()
+        res = self.regularization_strength * yp.backward().abs().sum()
+
+        return res
+
+    '''
+
+class LossGradientL1Regularizer():
+
+    def __init__(self, lossfn, regularization_strength=5e-2):
+        super(LossGradientL1Regularizer, self).__init__()
+        self.regularization_strength = regularization_strength
+        self.lossfn = lossfn
+
+    def __call__(self, model, x, y):
+        x.requires_grad_(True)
+        yp = model(x)
+        loss = self.lossfn(y, yp)
+        gloss_x = torch.autograd.grad(loss, x, create_graph=True)[0]
+        reg = gloss_x.abs().sum()
+        loss2 = loss + self.regularization_strength * reg
+        return loss2
+
+class ModelGradientL1Regularizer():
+
+    def __init__(self, lossfn, regularization_strength=5e-2):
+        super(LossGradientL1Regularizer, self).__init__()
+        self.regularization_strength = regularization_strength
+        self.lossfn = lossfn
+
+    def __call__(self, model, x, y):
+        x.requires_grad_(True)
+        yp = model(x)
+        loss = self.lossfn(y, yp)
+        gyp_x = torch.autograd.grad(yp, x, create_graph=True)[0]
+        reg = gyp_x.abs().sum()
+        loss2 = loss + self.regularization_strength * reg
+        return loss2
 

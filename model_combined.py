@@ -42,6 +42,13 @@ class RepeatedDataLoader():
     def __len__(self):
         return self.repeat * len(self.loader)
 
+class DummyDataLoader():
+    def __iter__(self):
+        return iter([])
+
+    def __len__(self):
+        return 0
+
 class CombinedDataLoader:
     def __init__(self, dss: List[Dataset]):
         self.datasets = dss
@@ -79,26 +86,35 @@ class Trainer(trainer_common.Trainer):
 
         for name, repeat in zip(self.dataset_names, self.dateset_repeats):
             if config.verbose:
-                print('loading from', name)
-            training_data = ImageDataset(
-                    img_dir=config.__getattribute__('train_'+ name),
-                    transform=self.train_transform)
-            test_data = ImageDataset(
-                    img_dir=config.__getattribute__('test_'+ name),
-                    transform=self.test_transform)
+                print('loading from', name, end='')
+            training_dir = config.__getattribute__('train_'+ name)
+            test_dir = config.__getattribute__('test_'+ name)
 
-            train_loader = DataLoader(training_data,
-                    batch_size=self.train_batch_size,
-                    shuffle=True,
-                    pin_memory=True,
-                    num_workers=8)
-            if config.repeat_dataset:
-                train_loader = RepeatedDataLoader(train_loader, repeat)
-            test_loader = DataLoader(test_data,
-                    batch_size=self.test_batch_size,
-                    shuffle=False,
-                    pin_memory=True,
-                    num_workers=1)
+            train_loader = DummyDataLoader()
+            test_loader = DummyDataLoader()
+            if training_dir:
+                print(' training: ', end='')
+                training_data = ImageDataset(
+                        img_dir=training_dir,
+                        transform=self.train_transform)
+                train_loader = DataLoader(training_data,
+                        batch_size=self.train_batch_size,
+                        shuffle=True,
+                        pin_memory=True,
+                        num_workers=8)
+                if config.repeat_dataset:
+                    train_loader = RepeatedDataLoader(train_loader, repeat)
+            if test_dir:
+                print('    and testing: ', end='')
+                test_data = ImageDataset(
+                        img_dir=test_dir,
+                        transform=self.test_transform)
+                test_loader = DataLoader(test_data,
+                        batch_size=self.test_batch_size,
+                        shuffle=False,
+                        pin_memory=True,
+                        num_workers=1)
+            print()
             self.datasets.append(Dataset(name, train_loader, test_loader))
         self.combined_trainset = CombinedDataLoader(self.datasets)
         self.test_result = None
@@ -123,6 +139,10 @@ class Trainer(trainer_common.Trainer):
             x, y = sample_batched['I'], sample_batched['y']
             x = x.to(self.device)
             y = y.to(self.device)
+
+            if self.attacker:
+                x = self.attacker(self.model, x, y, self.loss_fn)
+
             self.optimizer.zero_grad()
             yp = self.model(x)
             self.loss = self.loss_fn(y, yp)
@@ -181,8 +201,9 @@ class Trainer(trainer_common.Trainer):
             self.eval_common(loader)
         res = []
         for dataset in self.datasets:
-            print('{:6} Test: '.format(dataset.name), end='')
-            res.append(self.eval_common(dataset.test))
+            if len(dataset.test) > 0:
+                print('{:6} Test: '.format(dataset.name), end='')
+                res.append(self.eval_common(dataset.test))
         return res
 
     def eval_train(self):

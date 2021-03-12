@@ -20,9 +20,14 @@ def parse_config():
             help='How many epoches should be used for phase 1 training (this is only applicable for some models)')
     parser.add_argument("--lossfn", type=str, default='default')
     parser.add_argument("--eval_lossfn", type=str, default='default')
+    parser.add_argument("--loss_param1", type=float, default=1.5, help='The parameter')
+
+    parser.add_argument("--adaptive_resize", action='store_true')
 
     parser.add_argument("--train", type=bool, default=True)
     parser.add_argument('-e', "--eval", action='store_true')
+    parser.add_argument("--test_gradient_length", action='store_true')
+    parser.add_argument("--test_loss_gradient_length", action='store_true')
     parser.add_argument("--device", type=str, default='cuda:0')
     parser.add_argument("--resume", type=bool, default=True)
     parser.add_argument('-f', "--fresh", action='store_true', help='not to resume')
@@ -51,12 +56,18 @@ def parse_config():
 
     parser.add_argument('-n', '--normalize', action='store_true',
             help='Whether to normalise the input')
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count')
 
     parser.add_argument('--adversarial', default=None, type=str,
             help='If set, the adversarial attack method will be used, currently only support FGSM')
     parser.add_argument('--adversarial_radius', default=0., type=float,
             help='The radius')
+    parser.add_argument("--attack_param1", type=float, default=10, help='The parameter')
+
+    parser.add_argument('--regularizer', default='', type=str,
+            help='regularizer')
+    parser.add_argument('--reg_strength', default=5e-2, type=float,
+            help='The strength')
 
     # parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=256)
@@ -95,7 +106,22 @@ def main(cfg):
     if cfg.train:
         t.fit()
     else:
-        if config.train_correlation:
+        if config.eval_adversarial:
+            print('Evaluating adversarial')
+            for ds in t.datasets:
+                print('{}:'.format(ds.name))
+                t.eval_adversarial(loader=ds.test)
+        elif config.test_gradient_length:
+            print('Calculating gradients')
+            for ds in t.datasets:
+                print('{}:'.format(ds.name))
+                t.test_gradient_length(loader=ds.test)
+        elif config.test_loss_gradient_length:
+            print('Calculating gradients')
+            for ds in t.datasets:
+                print('{}:'.format(ds.name))
+                t.test_loss_gradient_length(loader=ds.test)
+        elif config.train_correlation:
             print(t.eval_train())
         else:
             print(t.eval())

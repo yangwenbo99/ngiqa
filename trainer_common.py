@@ -6,13 +6,14 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import math
 from torch.utils.data import DataLoader
 from torch.optim import lr_scheduler
 from torchvision import transforms
 import scipy.stats
 
 from py_join import Enumerable
-from transforms import AdaptiveCrop
+from transforms import AdaptiveCrop, AdaptiveResize
 
 # Note the difference between this implementaiton and the original
 from BaseCNN import BaseCNN
@@ -59,6 +60,14 @@ class Trainer(object):
             test_transform_list = \
                     [ AdaptiveCrop(config.image_size, config.image_size) ] +  \
                     test_transform_list
+        if config.adaptive_resize:
+            train_transform_list = \
+                    [ AdaptiveResize(512) ] +  \
+                    test_transform_list
+            test_transform_list = \
+                    [ AdaptiveResize(768) ] +  \
+                    test_transform_list
+
 
 
         if config.normalize:
@@ -88,6 +97,7 @@ class Trainer(object):
         # loss function
         self.loss_fn = self._get_loss_fn(config.lossfn)
         self.loss_fn.to(self.device)
+        self.regularizer = self._get_regularizer(config.regularizer, self.loss_fn)
         self.eval_loss = self._get_loss_fn(config.eval_lossfn)
         self.eval_loss.to(self.device)
 
@@ -129,6 +139,8 @@ class Trainer(object):
 
         if config.adversarial:
             self.attacker = self._get_attacker(config.adversarial)
+            if config.verbose:
+                print('The adversarial attacker is', self.attacker)
         else:
             self.attacker = None
 
@@ -152,8 +164,22 @@ class Trainer(object):
             return losses.BatchedL2RLoss(p=True)
         elif desc.upper().startswith('PL2R'):
             return losses.PairwiseL2RLoss()
+        elif desc.upper().startswith('SSRCC'):
+            return losses.BatchedSRCCLoss(self.config.loss_param1)
         else:
             return losses.model_loss()
+
+    def _get_regularizer(self, desc: str, loss_fn):
+        if desc.upper() == 'LOSSGRADL1':
+            if self.config.verbose:
+                print('The reg is', desc)
+            return losses.LossGradientL1Regularizer(loss_fn, self.config.reg_strength)
+        if desc.upper() == 'MODELGRADL1':
+            if self.config.verbose:
+                print('The reg is', desc)
+            return losses.LossGradientL1Regularizer(loss_fn, self.config.reg_strength)
+        else:
+            return None
 
     def _get_model(self, desc: str):
         if desc.upper().startswith('VE2EUIQA'):
@@ -206,8 +232,15 @@ class Trainer(object):
         if type(desc) is str:
             if desc.upper().startswith('FGSM'):
                 return FGSMAttacker(self.config.adversarial_radius)
+            if desc.upper().startswith('RFGSM'):
+                repeat = round(self.config.loss_param1)
+                return RepeatedFGSMAttacker(self.config.adversarial_radius, repeat)
+            if desc.upper().startswith('RANDFGSM'):
+                return RandomizedFGSMAttacker(self.config.adversarial_radius)
             if desc.upper().startswith('LINF'):
                 return LimitedLinfAttacker(self.config.adversarial_radius)
+            if desc.upper().startswith('SLINF'):
+                return LinfNormedSearch(self.config.adversarial_radius)
         return None
 
     def _load_checkpoint(self, ckpt):
@@ -232,8 +265,12 @@ class Trainer(object):
         for epoch in range(self.start_epoch, self.max_epochs):
             if self.model_name_input.upper().startswith('BASECNN'):
                 if epoch <= self.config.phase1:
+                    if self.config.verbose:
+                        print('Parameter freezed)')
                     self.model.freeze()
                 if epoch == self.config.phase1 + 1:
+                    if self.config.verbose:
+                        print('Parameter freezed')
                     self.model.unfreeze()
                     self.optimizer = optim.Adam([{'params': self.model.parameters(), 'lr': self.initial_lr}])
             self.train_single_epoch(epoch)
@@ -262,8 +299,12 @@ class Trainer(object):
                 x = self.attacker(self.model, x, y, self.loss_fn)
 
             self.optimizer.zero_grad()
-            yp = self.model(x)
-            self.loss = self.loss_fn(y, yp)
+            if not self.regularizer:
+                yp = self.model(x)
+                self.loss = self.loss_fn(y, yp)
+            else:
+                self.loss = self.regularizer(self.model, x, y)
+
             self.loss.backward()
             self.optimizer.step()
             if type(self.model) == E2EUIQA:
@@ -329,6 +370,60 @@ class Trainer(object):
         el = e.to_list()
         el.sort(key=lambda x: x[0])
         return el
+
+    def test_loss_gradient_length(self, loader=None):
+        if loader is None:
+            loader = self.test_loader
+        self.model.eval()
+        losses = []
+        lengths = []
+        for step, sample_batched in enumerate(loader, 0):
+            x, y = sample_batched['I'], sample_batched['y']
+            x = x.to(self.device)
+            y = y.to(self.device)
+            x.requires_grad_(True)
+            yp = self.model(x)
+            loss = self.eval_loss(y, yp)
+            loss.backward()
+            grad = x.grad.detach()
+            with torch.no_grad():
+                losses.append(loss.detach().cpu().flatten())
+                lengths.append(torch.sqrt((grad ** 2).sum()).detach().cpu())
+        loss = torch.tensor(losses)
+        l = torch.tensor(lengths)
+        if self.config.verbose > 2:
+            for tmp in losses:
+                print(tmp.cpu().numpy())
+        print('In terms of loss')
+        print('        Loss:', torch.mean(loss).numpy(), torch.std(loss).numpy())
+        print('        Gradients:', torch.mean(l).numpy(), torch.std(l).numpy())
+
+    def test_gradient_length(self, loader=None):
+        if loader is None:
+            loader = self.test_loader
+        self.model.eval()
+        yps = []
+        lengths = []
+        for step, sample_batched in enumerate(loader, 0):
+            x, y = sample_batched['I'], sample_batched['y']
+            x = x.to(self.device)
+            y = y.to(self.device)
+            x.requires_grad_(True)
+            yp = self.model(x)
+            yp.backward()
+            grad = x.grad.detach()
+            with torch.no_grad():
+                yps.append(yp.detach().cpu().flatten())
+                lengths.append(torch.sqrt((grad ** 2).sum()).detach().cpu())
+        ypp = torch.tensor(yps)
+        l = torch.tensor(lengths)
+        if self.config.verbose > 2:
+            for tmp in yps:
+                print(tmp[0].cpu().numpy())
+        print('In terms of y')
+        print('        Ys:', torch.mean(ypp).numpy(), torch.std(ypp).numpy())
+        print('        Gradients:', torch.mean(l).numpy(), torch.std(l).numpy())
+
 
     def eval_common(self, loader=None):
         if loader is None:
@@ -488,6 +583,63 @@ class FGSMAttacker():
         torch.set_grad_enabled(prev)
         return h, l
 
+class RandomizedFGSMAttacker(FGSMAttacker):
+    def __init__(self, radius):
+        self.radius = radius
+
+    def __call__(self, model, input_var, target_var, criterion):
+        radius = self.radius
+        depart = torch.rand_like(input_var) * radius
+        processed_var = super().__call__(model, input_var + depart, target_var, criterion)
+        res = torch.min(torch.max(processed_var, input_var - radius), input_var + radius)
+        return res
+
+    def attack_test(self, model, input_var, target_var):
+        def pf(x, y):
+            return x.sum()
+        def nf(x, y):
+            return -x.sum()
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self(model, input_var, target_var, pf)
+        l = self(model, input_var, target_var, nf)
+
+        torch.set_grad_enabled(prev)
+        return h, l
+
+class RepeatedFGSMAttacker():
+    def __init__(self, radius, repeat=10):
+        self.radius = radius
+        self.repeat = repeat
+
+    def __call__(self, model, input_var, target_var, criterion):
+        radius_per_step = self.radius / self.repeat
+        for i in range(self.repeat):
+            input_var.requires_grad_(True)
+            if input_var.grad is not None:
+                input_var.grad.data.zero_()
+            output = model(input_var)
+            loss = criterion(output, target_var)
+            loss.backward()
+            move = torch.sign(input_var.grad.detach()) * radius_per_step
+            input_var = input_var.detach() + move
+        return input_var
+
+    def attack_test(self, model, input_var, target_var):
+        def pf(x, y):
+            return x.sum()
+        def nf(x, y):
+            return -x.sum()
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self(model, input_var, target_var, pf)
+        l = self(model, input_var, target_var, nf)
+
+        torch.set_grad_enabled(prev)
+        return h, l
+
 
 class LimitedLinfAttacker():
     def __init__(self, tol, lr=1, iter=0, his=8):
@@ -553,3 +705,99 @@ class LimitedLinfAttacker():
 
         torch.set_grad_enabled(prev)
         return h, l
+
+class LinfNormedSearch:
+    def __init__(
+            self,
+            tol, iter=0,
+            stop_eps=1e-5, num_sample_point=10,
+            k=0.3):
+        '''
+        @param k: the adjusting parameter for this method, see the technical
+                  report
+        '''
+        self._tol = tol
+        self._num_iter = iter if iter != 0 else 50
+        self._stop_eps = stop_eps
+        self._num_sample_point = num_sample_point
+        self._k = k
+
+    def __call__(self, model, img, target_var, criterion):
+        raise NotImplemented('The search method has not been implemented for batched attack')
+
+    def attack_test(self, model, input_var, target_var):
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self._attack(input_var, model, 1)
+        l = self._attack(input_var, model, -1)
+        torch.set_grad_enabled(prev)
+        return h, l
+
+    def _attack(self, img, model, dir):
+        tol = self._tol
+
+        ori_img = img.clone()
+        lower_bound = ori_img - tol
+        upper_bound = ori_img + tol
+
+        h, w = img.shape[-2], img.shape[-1]
+
+        def project_back(x):
+            x = torch.max(x, lower_bound)
+            x = torch.min(x, upper_bound)
+            return x
+
+        for i in range(self._num_iter):
+            print('\r', i, end='    ')
+
+            img.requires_grad_(True)
+            if img.grad is not None:
+                img.grad.data.zero_()
+            y = model(img)
+            print(y.detach().flatten().cpu().numpy(), end='')
+            y.backward()
+            yp = img.grad.clone().detach()
+            img.requires_grad_(False)
+
+            with torch.no_grad():
+                y_opt = - 1e128 * dir
+                x_opt = None
+                # We want the 'ideal step' to have generall similar size, and
+                # comparable to tol
+                ypp = torch.sign(yp) * (abs(yp) ** self._k)
+                ideal_step = 20 * dir * (ypp * (self._tol) / (abs(ypp).max() + self._tol))
+                for isample in range(self._num_sample_point):
+                    # sample_step = ideal_step * ((isample + 1) / self._num_sample_point)
+                    sample_step = 500 * ideal_step * math.exp(- 10 * (isample) / self._num_sample_point)
+                    # Maybe we should not foloow the gradient
+                    # the effect of quantised can be decomposed:
+                    #     Change of step size and direction + quantise for
+                    #     number
+                    x_this = project_back(img + sample_step)
+                    y_this = model(x_this)
+                    if dir * (y_this - y_opt) > 0:
+                        x_opt = x_this
+                        y_opt = y_this
+
+                # try the same on the negative side
+                for isample in range(self._num_sample_point // 2):
+                    sample_step = - ideal_step * math.exp(- 10 * (isample) / self._num_sample_point)
+                    x_this = project_back(img + sample_step)
+                    y_this = model(x_this)
+                    if dir * (y_this - y_opt) > 0:
+                        x_opt = x_this
+                        y_opt = y_this
+
+                if dir * (y_opt - y) <= 0:
+                    # not getting better
+                    break
+
+                # Now, we can update x
+                img = x_opt
+                if dir * (y_opt - y) < self._stop_eps:
+                    break
+
+        print('\r', end='')
+        return img
+

@@ -22,6 +22,8 @@ def parse_config():
     parser.add_argument("--lossfn", type=str, default='default')
     parser.add_argument("--eval_lossfn", type=str, default='default')
 
+    parser.add_argument("--adaptive_resize", action='store_true')
+
     parser.add_argument("--train", type=bool, default=True)
     parser.add_argument('-e', "--eval", action='store_true')
     parser.add_argument("--device", type=str, default='cuda:0')

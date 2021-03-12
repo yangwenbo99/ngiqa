@@ -23,14 +23,24 @@
 
 ## Main idea
 
-L2R out-performs conventional regression, because it is able to compare scores.  Then, why not compare more?  This time, the loss is like batch SRCC.  See `CorrelationWithMeanLoss` in `model.py`.
+L2R out-performs conventional regression, because it is able to compare scores.  Then, why not compare more?  This time, the loss is like batched PLCC.  See `CorrelationLoss` in `model.py`.
 
 The training and testing sets are divided using similar methods to UNIQUE, except that only LIVE is used. 
 
-SRCC (of test set) goes beyond 0.98 in several minutes. 
+SRCC (of test set) goes beyond 0.95 for LIVE in several minutes. 
 
 ### Limitations
 
 Need large GRAM
 
 This model is not perfect, and has some potential for improvements, for example, it only accepts fixed size of images, and will randomly crop test images. 
+
+
+
+## Adversarial Training
+
+Batched PLCC used together with FGSM makes a model robust to both FGSM and the stronger search method (should be stronger than PGD methods) 
+
+However, Vanilla L2R (as defined in `README.md`) used with FGSM does not enhance robustness at all. 
+
+Batched SRCC with FGSM also helps robustness while batched L2R does not. 
