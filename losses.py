@@ -10,7 +10,7 @@ class model_loss(torch.nn.Module):
         super(model_loss, self).__init__()
 
     def forward(self, y, yp):
-        return torch.mean(((yp - y) / (y + LOSS_N)) ** 2)
+        return torch.mean(((yp - y) / (torch.abs(y) + LOSS_N)) ** 2)
 
 class MAELoss(torch.nn.Module):
 
@@ -170,6 +170,39 @@ class PairwiseL2RLoss(torch.nn.Module):
 
         return - objs
 
+class PairwiseL2RWithHardFidelityLoss(torch.nn.Module):
+    '''
+    p (real) = 0 or 1
+    '''
+
+    def __init__(self):
+        super(PairwiseL2RWithHardFidelityLoss, self).__init__()
+
+    SQRT2 = math.sqrt(2)
+
+    def cdf(self, x):
+        return (1 + torch.erf(x / self.SQRT2)) / 2
+
+    def forward(self, y, yp):
+        eps = 1e-6
+        y = y.flatten()
+        yp = yp.flatten()
+        n = int(y.shape[0])
+        k = n // 2
+        y1, y2 = y[:k], y[k:2*k]
+        yp1, yp2 = yp[:k], yp[k:2*k]
+
+        labels = torch.sign(y1 - y2)
+        pp = (labels + 1) / 2
+        # pp = torch.clamp(pp, 0, 1)
+        p = self.cdf(yp1 - yp2)
+        # p = torch.clamp(p, 0, 1)
+        objx = 1 - torch.sqrt(pp * p + eps) - torch.sqrt((1 - pp) * (1 - p) + eps)
+
+        objs = torch.mean(objx)
+
+        return objs
+
 
 
 class BatchedL2RLoss(torch.nn.Module):
@@ -282,7 +315,7 @@ class LossGradientL1Regularizer():
 class ModelGradientL1Regularizer():
 
     def __init__(self, lossfn, regularization_strength=5e-2):
-        super(LossGradientL1Regularizer, self).__init__()
+        super(ModelGradientL1Regularizer, self).__init__()
         self.regularization_strength = regularization_strength
         self.lossfn = lossfn
 
@@ -293,5 +326,82 @@ class ModelGradientL1Regularizer():
         gyp_x = torch.autograd.grad(yp, x, create_graph=True)[0]
         reg = gyp_x.abs().sum()
         loss2 = loss + self.regularization_strength * reg
+        return loss2
+
+class ModelGradientL1CosRegularizer():
+    '''
+    Reference: https://arxiv.org/abs/2007.02617
+
+    Parameter in the original paper:
+        step = 8 / 255
+        regularization_strength2 = 0.2
+    '''
+
+    def __init__(self, lossfn, step, regularization_strength1=5e-2, regularization_strength2=2e-1):
+        super(ModelGradientL1CosRegularizer, self).__init__()
+        self.regularization_strength1 = regularization_strength1
+        self.regularization_strength2 = regularization_strength2
+        self.lossfn = lossfn
+        self.step = step
+
+    def get_rand_input(self, x):
+        eps = self.step
+        delta = torch.zeros_like(x).cuda()
+        delta.uniform_(-eps, eps)
+        return x + delta
+
+    def __call__(self, model, x, y):
+        x.requires_grad_(True)
+        yp = model(x)
+        gyp_x = torch.autograd.grad(yp, x, create_graph=True)[0]
+        xd = self.get_rand_input(x)
+        ypd = model(xd)
+        gyp_xd = torch.autograd.grad(ypd, xd, create_graph=True)[0]
+        grad1, grad2 = gyp_x.reshape(len(gyp_x), -1), gyp_xd.reshape(len(gyp_xd), -1)
+
+        loss = self.lossfn(y, yp)
+        reg1 = gyp_x.abs().sum()
+        reg2 = 1.0 - torch.nn.functional.cosine_similarity(grad1, grad2, 1).mean()
+        loss2 = \
+                loss + \
+                self.regularization_strength1 * reg1 + \
+                self.regularization_strength2 * reg2
+        return loss2
+
+class ModelGradientCosRegularizer():
+    '''
+    Reference: https://arxiv.org/abs/2007.02617
+
+    Parameter in the original paper:
+        step = 8 / 255
+        regularization_strength2 = 0.2
+    '''
+
+    def __init__(self, lossfn, step, regularization_strength2=2e-1):
+        super(ModelGradientL1CosRegularizer, self).__init__()
+        self.regularization_strength2 = regularization_strength2
+        self.lossfn = lossfn
+        self.step = step
+
+    def get_rand_input(self, x):
+        eps = self.step
+        delta = torch.zeros_like(x).cuda()
+        delta.uniform_(-eps, eps)
+        return x + delta
+
+    def __call__(self, model, x, y):
+        x.requires_grad_(True)
+        yp = model(x)
+        gyp_x = torch.autograd.grad(yp, x, create_graph=True)[0]
+        xd = self.get_rand_input(x)
+        ypd = model(xd)
+        gyp_xd = torch.autograd.grad(ypd, xd, create_graph=True)[0]
+        grad1, grad2 = gyp_x.reshape(len(gyp_x), -1), gyp_xd.reshape(len(gyp_xd), -1)
+
+        loss = self.lossfn(y, yp)
+        reg2 = 1.0 - torch.nn.functional.cosine_similarity(grad1, grad2, 1).mean()
+        loss2 = \
+                loss + \
+                self.regularization_strength2 * reg2
         return loss2
 

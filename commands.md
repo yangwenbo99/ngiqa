@@ -408,6 +408,7 @@ time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf
     time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
     time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
+
 time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf 
 
     time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf --adversarial FGSM --adversarial_radius 1.5e-2 --eval --eval_adversarial --test_batch_size 1
@@ -512,7 +513,17 @@ time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2.conf
     time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
     time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
+time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf
+    time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
+time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-very-long-training.conf
+
+############## Pairwise, hard fidelity
+
+time ./main_combined.py -v -c config_files/adv/other_losses/pl2r_hf/r2.conf
+    time ./main_combined.py -v -c config_files/adv/other_losses/pl2r_hf/r2.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/other_losses/pl2r_hf/r2.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
 ############### SRCC
 time ./main_combined.py -v -c config_files/adv/batchedsrcc/fgsm/r2.conf 
@@ -553,5 +564,77 @@ time ./main_combined.py -v -c config_files/adv/pl2rfgsm/r3.conf --eval --test_lo
 time ./main_combined.py -v -c config_files/adv/lossgradl1reg/r3.conf --eval --test_loss_gradient_length --test_batch_size 56 --eval_lossfn PL2R
 
 
+
 ```
 
+default loss
+
+```bash
+
+time ./main_combined.py -v -c config_files/adv/other_losses/default_loss/r2.conf
+```
+
+cos loss
+
+```bash
+
+time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r2.conf
+    time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r2.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r2.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r3.conf
+    time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r3.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/other_losses/cos/corr-r3.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+```
+
+Reduced batch size 
+
+```bash
+time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+time ./main_combined.py -v -c config_files/adv/fgsm/r2-b8.conf
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b8.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b8.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+    # Test first 3 epoches
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b8.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1 --ckpt BaseCNN-00002.pt
+
+time ./main_combined.py -v -c config_files/adv/fgsm/r2-b4.conf
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b4.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b4.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+```
+
+Slow start, i.e. the first few epoches to train FC layers are not larger
+
+```bash
+time ./main_combined.py -v -c config_files/adv/fgsm/r2-slow-start.conf
+```
+
+
+
+```bash
+time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf
+```
+
+
+## Plot weight report
+
+```bash
+./compare_model.py -v -c config_files/adv/fgsm/r2-b16.conf -j tmp_json.json --md tmp_markdown
+
+
+./compare_model.py -v -c config_files/adv/bl2rfgsm/r2.conf --md weight_reports/bl2rfgsm-r2 --cm
+./compare_model.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf --md weight_reports/bl2rfgsm-r2-long-traininng --cm --step 8 
+./compare_model.py -v -c config_files/adv/pl2rfgsm/r2.conf --md weight_reports/pl2rfgsm-r2 --cm
+./compare_model.py -v -c config_files/adv/fgsm/r2.conf --md weight_reports/fgsm-r2 --cm
+./compare_model.py -v -c config_files/adv/fgsm/r2-b16.conf --md weight_reports/fgsm-r2-b16     #pending
+
+./compare_model.py -v -c config_files/adv/bl2rfgsm/r2.conf --md weight_reports/bl2rfgsm-r2 --sm
+./compare_model.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf --md weight_reports/bl2rfgsm-r2-long-traininng --sm --smstep 8 
+./compare_model.py -v -c config_files/adv/pl2rfgsm/r2.conf --md weight_reports/pl2rfgsm-r2 --sm
+./compare_model.py -v -c config_files/adv/fgsm/r2.conf --md weight_reports/fgsm-r2 --sm
+
+./compare_model.py -v -c config_files/adv/fgsm/r2-slow-start.conf --md weight_reports/fgsm-r2-slow-start --sm --cm
+```

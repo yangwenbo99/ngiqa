@@ -164,6 +164,8 @@ class Trainer(object):
             return losses.BatchedL2RLoss(p=True)
         elif desc.upper().startswith('PL2R'):
             return losses.PairwiseL2RLoss()
+        elif desc.upper().startswith('HPL2R'):
+            return losses.PairwiseL2RWithHardFidelityLoss()
         elif desc.upper().startswith('SSRCC'):
             return losses.BatchedSRCCLoss(self.config.loss_param1)
         else:
@@ -178,6 +180,10 @@ class Trainer(object):
             if self.config.verbose:
                 print('The reg is', desc)
             return losses.LossGradientL1Regularizer(loss_fn, self.config.reg_strength)
+        if desc.upper() == 'COSM':
+            if self.config.verbose:
+                print('The reg is', desc)
+            return losses.ModelGradientL1CosRegularizer(loss_fn, self.config.adversarial_radius, self.config.reg_strength)
         else:
             return None
 
@@ -466,7 +472,8 @@ class Trainer(object):
 
         self.model.train()
 
-        return sum(losses) / len(losses)
+        # return sum(losses) / len(losses)
+        return float(srcc), float(plcc)
 
     def eval(self, loader=None):
         return self.eval_common(loader)
@@ -497,7 +504,7 @@ class Trainer(object):
                 ys += list(y.flatten().detach().cpu())
 
         n = len(ys)
-        print('Total:', n * (n - 1) / 2)
+        print('Total:', n * (n - 1) // 2)
         correct = [
                 (i, j)
                 for i in range(n)
@@ -518,6 +525,11 @@ class Trainer(object):
                     y, yp, yph, ypl))
 
         self.model.train()
+        return {
+                'total': n * (n - 1) // 2,
+                'correct': len(correct),
+                'inverted': len(inverted)
+                }
 
 
 class SimpleModel(nn.Module):

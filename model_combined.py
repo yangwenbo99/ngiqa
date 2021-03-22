@@ -198,7 +198,7 @@ class Trainer(trainer_common.Trainer):
 
     def eval(self, loader=None):
         if loader is not None:
-            self.eval_common(loader)
+            return self.eval_common(loader)
         res = []
         for dataset in self.datasets:
             if len(dataset.test) > 0:
