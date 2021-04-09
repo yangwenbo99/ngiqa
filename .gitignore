@@ -179,3 +179,4 @@ train_log.txt
 test/
 tmp.md
 tmp.sh
+weight_reports/
