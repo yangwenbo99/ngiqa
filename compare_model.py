@@ -32,6 +32,7 @@ def parse_config():
     parser.add_argument("--representation", type=str, default="BCNN")
     parser.add_argument("--phase1", type=int, default=2,
             help='How many epoches should be used for phase 1 training (this is only applicable for some models)')
+    parser.add_argument("--phase1_lr", type=float, default=0.0)
     parser.add_argument("--lossfn", type=str, default='default')
     parser.add_argument("--eval_lossfn", type=str, default='default')
     parser.add_argument("--loss_param1", type=float, default=1.5, help='The parameter')
@@ -219,24 +220,27 @@ def single_model_statistics(config: argparse.Namespace):
     res = [ ]
 
     def build_adversarial_table(radius, train=False):
+        if config.verbose:
+            print('Building adversarial table')
         res = { }
         adv_trainer = get_fgsm_trainer(checkpoint_path, radius, config)
         if config.verbose:
             print(adv_trainer.config)
         for dataset in adv_trainer.datasets:
+            if config.verbose:
+                print(f'    Dealing with {dataset.name}')
             if train:
                 tab = adv_trainer.eval_adversarial(loader=dataset.train)
             else:
                 tab = adv_trainer.eval_adversarial(loader=dataset.test)
             tab = {key: float(value) for key, value in tab.items()}
             res[dataset.name] = tab
+        del adv_trainer
         return res
 
-
-    for checkpoint_path in checkpoint_paths:
+    def get_score(checkpoint_path, config):
         trainer = get_trainer(checkpoint_path, config)
-        res.append({
-            'checkpoint': checkpoint_path.name if checkpoint_path else None,
+        res = {
             'testing scores': {
                 dataset.name: trainer.eval(dataset.test)
                 for dataset in trainer.datasets if len(dataset.test) > 0
@@ -244,7 +248,19 @@ def single_model_statistics(config: argparse.Namespace):
             'training scores': {
                 dataset.name: trainer.eval(dataset.train)
                 for dataset in trainer.datasets if len(dataset.train) > 0
-                },
+                }
+            }
+        del trainer
+        return res
+
+    for checkpoint_path in checkpoint_paths:
+        y = build_adversarial_table(2e-2)
+        x = get_score(checkpoint_path, config)
+        print(x)
+        res.append({
+            'checkpoint': checkpoint_path.name if checkpoint_path else None,
+            'testing scores': x['testing scores'],
+            'training scores': x['training scores'],
             'adversarial': {
                 radius: build_adversarial_table(radius) for radius in [2e-2, 5e-2, 1e-1]
                 },

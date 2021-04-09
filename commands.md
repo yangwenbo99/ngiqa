@@ -518,6 +518,8 @@ time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf
     time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-long-training.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
 time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-very-long-training.conf
+    time ./main_combined.py -v -c config_files/adv/bl2rfgsm/r2-very-long-training.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
 
 ############## Pairwise, hard fidelity
 
@@ -637,4 +639,43 @@ time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf
 ./compare_model.py -v -c config_files/adv/fgsm/r2.conf --md weight_reports/fgsm-r2 --sm
 
 ./compare_model.py -v -c config_files/adv/fgsm/r2-slow-start.conf --md weight_reports/fgsm-r2-slow-start --sm --cm
+
+./compare_model.py -v -c config_files/adv/large_scale/resnet50-clean.conf --md weight_reports/large-scale-resnet50 --sm --batch_size 1 --test_batch_size 1
+./compare_model.py -v -c config_files/adv/large_scale/r2.conf --md weight_reports/large-scale-r2 --sm 
 ```
+
+
+
+## Testing other losses
+
+```bash
+time ./main_combined.py -v -c config_files/adv/losses/mse/r2.conf
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2-b16.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+time ./main_combined.py -v -c config_files/adv/losses/mse/r2-kiniq.conf
+
+time ./main_combined.py -v -c config_files/adv/losses/mse/r2-output-norm.conf
+
+
+# Norm in norm
+time ./main_combined.py -v -c config_files/adv/losses/nin/r2.conf
+```
+
+
+
+- output normalisation
+- PGD
+- cross-dataset
+
+## Large scale
+
+```bash
+./main_combined.py -v -c config_files/adv/large_scale/r2.conf
+./main_combined.py -v -c config_files/adv/large_scale/clean.conf
+
+./main_combined.py -v -c config_files/adv/large_scale/resnet50-clean.conf --eval --eval_adversarial  --adversarial FGSM --adversarial_radius 5e-2 
+```
+
+
+Larger model can get better result, but we don't have resource for training and testing such models 

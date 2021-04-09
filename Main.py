@@ -18,6 +18,7 @@ def parse_config():
     parser.add_argument("--representation", type=str, default="BCNN")
     parser.add_argument("--phase1", type=int, default=2,
             help='How many epoches should be used for phase 1 training (this is only applicable for some models)')
+    parser.add_argument("--phase1_lr", type=float, default=0.0)
     parser.add_argument("--alternative_train_loss", action='store_true')
     parser.add_argument("--lossfn", type=str, default='default')
     parser.add_argument("--eval_lossfn", type=str, default='default')

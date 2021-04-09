@@ -1,6 +1,8 @@
 import torch
 import math
 from fast_soft_sort.pytorch_ops import soft_rank
+import torch.nn.functional as F
+import numpy as np
 
 LOSS_N = 1
 
@@ -405,3 +407,50 @@ class ModelGradientCosRegularizer():
                 self.regularization_strength2 * reg2
         return loss2
 
+
+
+# The folloing loss functions come from https://github.com/lidq92/LinearityIQA/blob/master/IQAloss.py
+
+def norm_loss_with_normalization(y_pred, y, p=2, q=2, detach=False, exponent=True, eps=1e-8):
+    """norm_loss_with_normalization: norm-in-norm"""
+    y_pred = y_pred.flatten()
+    y = y.flatten()
+    N = y_pred.size(0)
+    if N > 1:
+        m_hat = torch.mean(y_pred.detach()) if detach else torch.mean(y_pred)
+        y_pred = y_pred - m_hat  # very important!!
+        normalization = torch.norm(y_pred.detach(), p=q) if detach else torch.norm(y_pred, p=q)  # Actually, z-score normalization is related to q = 2.
+        # print('bhat = {}'.format(normalization.item()))
+        y_pred = y_pred / (eps + normalization)  # very important!
+        y = y - torch.mean(y)
+        y = y / (eps + torch.norm(y, p=q))
+        scale = np.power(2, max(1,1./q)) * np.power(N, max(0,1./p-1./q)) # p, q>0
+
+        err = y_pred - y
+        if p < 1:  # avoid gradient explosion when 0<=p<1; and avoid vanishing gradient problem when p < 0
+            err += eps
+        loss0 = torch.norm(err, p=p) / scale  # Actually, p=q=2 is related to PLCC
+        loss0 = torch.pow(loss0, p) if exponent else loss0 #
+
+        return loss0
+    else:
+        # If the batch size is too small, the calculation is not reliable
+        return F.l1_loss(y_pred, y_pred.detach())
+
+
+class NormInNorm(torch.nn.Module):
+
+    def __init__(self, p, q):
+        '''
+        p, q as defined in
+        Norm-in-Norm Loss with Faster Convergence and Better
+        Performance for Image Quality Assessment
+
+        '''
+        super(NormInNorm, self).__init__()
+        print(f'p = {p}, q = {q}')
+        self.p = p
+        self.q = q
+
+    def forward(self, y, yp):
+        return norm_loss_with_normalization(yp, y, self.p, self.q)

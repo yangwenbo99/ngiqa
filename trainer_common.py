@@ -16,7 +16,7 @@ from py_join import Enumerable
 from transforms import AdaptiveCrop, AdaptiveResize
 
 # Note the difference between this implementaiton and the original
-from BaseCNN import BaseCNN
+from BaseCNN import BaseCNN, BaseCNNWithOutputNormalization
 from dataset import ImageDataset
 from ve2euiqa import VE2EUIQA
 from e2euiqa import E2EUIQA
@@ -101,6 +101,9 @@ class Trainer(object):
         self.eval_loss = self._get_loss_fn(config.eval_lossfn)
         self.eval_loss.to(self.device)
 
+        self.phase1_lr = config.phase1_lr
+        if not self.phase1_lr or self.phase1_lr < config.lr:
+            self.phase1_lr = config.lr * 10
         self.initial_lr = config.lr
         if self.initial_lr is None:
             lr = 0.0005
@@ -115,7 +118,7 @@ class Trainer(object):
         self.epochs_per_eval = config.epochs_per_eval
         self.epochs_per_save = config.epochs_per_save
 
-        self.optimizer = optim.Adam([{'params': self.model.parameters(), 'lr': lr}])
+        self.optimizer = optim.Adam([{'params': self.model.parameters(), 'lr': self.phase1_lr}])
 
         # try load the model
         if config.resume or not config.train:
@@ -168,6 +171,11 @@ class Trainer(object):
             return losses.PairwiseL2RWithHardFidelityLoss()
         elif desc.upper().startswith('SSRCC'):
             return losses.BatchedSRCCLoss(self.config.loss_param1)
+        elif desc.upper().startswith('NIN'):
+            splits = desc.split('+')
+            p = float(splits[1])
+            q = float(splits[2])
+            return losses.NormInNorm(p, q)
         else:
             return losses.model_loss()
 
@@ -212,7 +220,10 @@ class Trainer(object):
             model = BaseCNN(self.config)
             return model
             # return nn.DataParallel(model, device_ids=[0])
-        if desc.upper().startswith('SIMPLE'):
+        if desc.upper().startswith('ONBASECNN'):
+            model = BaseCNNWithOutputNormalization(self.config)
+            return model
+            # return nn.DataParallel(model, device_ids=[0])
             model = SimpleModel(self.config)
             return model
         if desc.upper().startswith('MS'):
@@ -483,6 +494,7 @@ class Trainer(object):
             loader = self.test_loader
 
         self.model.eval()
+        print('Start evaluating')
         ys = []
         yps = []
         yphs = []
@@ -572,10 +584,13 @@ class FGSMAttacker():
 
     def __call__(self, model, input_var, target_var, criterion):
         input_var.requires_grad_(True)
+        # print('>>>', input_var.requires_grad)
         if input_var.grad is not None:
             input_var.grad.data.zero_()
         output = model(input_var)
-        loss = criterion(output, target_var)
+        # print('>>>', output)
+        loss = criterion(target_var, output)
+        # print('>>>', loss)
         loss.backward()
         move = torch.sign(input_var.grad.detach()) * self.radius
         input_var = input_var.detach() + move
@@ -583,9 +598,9 @@ class FGSMAttacker():
 
     def attack_test(self, model, input_var, target_var):
         def pf(x, y):
-            return x.sum()
+            return y.sum()
         def nf(x, y):
-            return -x.sum()
+            return -y.sum()
         prev = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
@@ -608,9 +623,9 @@ class RandomizedFGSMAttacker(FGSMAttacker):
 
     def attack_test(self, model, input_var, target_var):
         def pf(x, y):
-            return x.sum()
+            return y.sum()
         def nf(x, y):
-            return -x.sum()
+            return -y.sum()
         prev = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
@@ -640,9 +655,9 @@ class RepeatedFGSMAttacker():
 
     def attack_test(self, model, input_var, target_var):
         def pf(x, y):
-            return x.sum()
+            return y.sum()
         def nf(x, y):
-            return -x.sum()
+            return -y.sum()
         prev = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
@@ -706,9 +721,9 @@ class LimitedLinfAttacker():
 
     def attack_test(self, model, input_var, target_var):
         def pf(x, y):
-            return x.sum()
+            return y.sum()
         def nf(x, y):
-            return -x.sum()
+            return -y.sum()
         prev = torch.is_grad_enabled()
         torch.set_grad_enabled(True)
 
