@@ -391,6 +391,8 @@ time ./main_combined.py -v -c config_files/adv/fgsm/r1.conf
     time ./main_combined.py -v -c config_files/adv/fgsm/r1.conf --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
     time ./main_combined.py -v -c config_files/adv/fgsm/r1.conf --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
+    time ./main_combined.py -v -c config_files/adv/fgsm/r1.conf --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+
 time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf 
 
     time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial_radius 1.5e-2 --eval --eval_adversarial --test_batch_size 32
@@ -407,6 +409,8 @@ time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf
 
     time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
     time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+    time ./main_combined.py -v -c config_files/adv/fgsm/r2.conf --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
 
 
 time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf 
@@ -426,9 +430,34 @@ time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf
     time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
     time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
+    time ./main_combined.py -v -c config_files/adv/fgsm/r3.conf --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+
 time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf 
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial FGSM --adversarial_radius 1e-1 --eval --eval_adversarial --test_batch_size 32
+
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r1.conf  --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf 
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial FGSM --adversarial_radius 1e-1 --eval --eval_adversarial --test_batch_size 32
+
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+    
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r2.conf  --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf 
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial FGSM --adversarial_radius 1e-1 --eval --eval_adversarial --test_batch_size 32
+
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/rfgsm/r3.conf  --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 
 time ./main_combined.py -v -c config_files/adv/pl2rfgsm/r2.conf
     time ./main_combined.py -v -c config_files/adv/pl2rfgsm/r2.conf --adversarial FGSM --adversarial_radius 1.5e-2 --eval --eval_adversarial --test_batch_size 1
@@ -614,6 +643,19 @@ Slow start, i.e. the first few epoches to train FC layers are not larger
 time ./main_combined.py -v -c config_files/adv/fgsm/r2-slow-start.conf
 ```
 
+PGD
+```bash
+time ./main_combined.py -v -c config_files/adv/pgd/r2.conf
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf --adversarial FGSM --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf --adversarial FGSM --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf --adversarial FGSM --adversarial_radius 1e-2 --eval --eval_adversarial --test_batch_size 32
+
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf   --adversarial SLINF --adversarial_radius 2e-2 --eval --eval_adversarial --test_batch_size 1
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf   --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
+
+    time ./main_combined.py -v -c config_files/adv/pgd/r2.conf   --adversarial PGD --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 32
+    
+```
 
 
 ```bash
@@ -673,9 +715,21 @@ time ./main_combined.py -v -c config_files/adv/losses/nin/r2.conf
 ```bash
 ./main_combined.py -v -c config_files/adv/large_scale/r2.conf
 ./main_combined.py -v -c config_files/adv/large_scale/clean.conf
+    ./main_combined.py -v -c config_files/adv/large_scale/clean.conf --eval 
 
 ./main_combined.py -v -c config_files/adv/large_scale/resnet50-clean.conf --eval --eval_adversarial  --adversarial FGSM --adversarial_radius 5e-2 
 ```
 
 
 Larger model can get better result, but we don't have resource for training and testing such models 
+
+
+
+## Demos
+
+
+```bash
+python demo.py -c config_files/adv/large_scale/clean.conf  -i demo_imgs/cat.jpg  -g demo_imgs/large-scale-clean-cat-high.tiff  -l demo_imgs/large-scale-clean-cat-low.tiff --adversarial FGSM --adversarial_radius 0.05
+
+
+```

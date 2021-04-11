@@ -48,7 +48,7 @@ def parse_config():
 
     parser.add_argument('-n', '--normalize', action='store_true',
             help='Whether to normalise the input')
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
 
     # parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--batch_size", type=int, default=256)

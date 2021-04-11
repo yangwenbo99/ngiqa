@@ -71,7 +71,7 @@ def parse_config():
 
     parser.add_argument('-n', '--normalize', action='store_true',
             help='Whether to normalise the input')
-    parser.add_argument('-v', '--verbose', action='count')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
 
     parser.add_argument('--adversarial', default=None, type=str,
             help='If set, the adversarial attack method will be used, currently only support FGSM')
@@ -177,9 +177,9 @@ def get_fgsm_trainer(ckpt_path, radius, config):
     this_config = argparse.Namespace(**vars(config))
     this_config.ckpt = ckpt_path.name if ckpt_path else None
     if not ckpt_path: this_config.resume = False
-    this_config.eval = True
-    this_config.train = False
-    this_config.eval_adversarial = True
+    # this_config.eval = True
+    # this_config.train = False
+    # this_config.eval_adversarial = True
     this_config.adversarial = 'FGSM'
     this_config.adversarial_radius = radius
     if this_config.batch_size > 32: this_config.batch_size = 32
@@ -254,9 +254,8 @@ def single_model_statistics(config: argparse.Namespace):
         return res
 
     for checkpoint_path in checkpoint_paths:
-        y = build_adversarial_table(2e-2)
         x = get_score(checkpoint_path, config)
-        print(x)
+        # print(x)
         res.append({
             'checkpoint': checkpoint_path.name if checkpoint_path else None,
             'testing scores': x['testing scores'],
@@ -304,9 +303,13 @@ def markdown_single_model_report(report_path: Path, checkpoint_paths: List[Path]
     testing_datasets = res[0]['testing scores'].keys()
     testing_scores = { dsname: [ x['testing scores'][dsname] for x in res ]
             for dsname in testing_datasets }
+    testing_labels = [ dsname + '-' + lname for dsname in testing_datasets
+            for lname in ['SRCC', 'PLCC'] ]
     training_datasets = res[0]['training scores'].keys()
     training_scores = { dsname: [ x['training scores'][dsname] for x in res ]
             for dsname in training_datasets }
+    training_labels = [ dsname + '-' + lname for dsname in training_datasets
+            for lname in ['SRCC', 'PLCC'] ]
     # print('DSs:', testing_datasets)
     # print('DSs:', training_datasets)
 
@@ -319,8 +322,9 @@ def markdown_single_model_report(report_path: Path, checkpoint_paths: List[Path]
                     'correct': [ x['adversarial'][radius][daname]['correct'] for x in res ],
                     'inverted': [ x['adversarial'][radius][daname]['inverted'] for x in res ],
                     }
+                for daname in testing_datasets
                 }
-            for radius in adversarial_radius for daname in testing_datasets
+            for radius in adversarial_radius
             }
     if config.test_adversarial_training:
         adversarial_trainings = {
@@ -352,7 +356,8 @@ def markdown_single_model_report(report_path: Path, checkpoint_paths: List[Path]
         img_fname = 'training_score.png'
         this_img_path = img_path / img_fname
         plot_dict(training_scores)
-        plt.legend(['SRCC', 'PLCC'])
+        # plt.legend(['SRCC', 'PLCC'])
+        plt.legend(training_labels)
         plt.savefig(this_img_path)
         plt.close()
         f.write('![Training scores]({})\n\n'.format(this_img_path.relative_to(report_path)))
@@ -361,7 +366,8 @@ def markdown_single_model_report(report_path: Path, checkpoint_paths: List[Path]
         img_fname = 'testing_score.png'
         this_img_path = img_path / img_fname
         plot_dict(testing_scores)
-        plt.legend(['SRCC', 'PLCC'])
+        # plt.legend(['SRCC', 'PLCC'])
+        plt.legend(testing_labels)
         plt.savefig(this_img_path)
         plt.close()
         f.write('![Testing scores]({})\n\n'.format(this_img_path.relative_to(report_path)))
@@ -370,7 +376,7 @@ def markdown_single_model_report(report_path: Path, checkpoint_paths: List[Path]
         for radius, v1 in adversarials.items():
             f.write('#### Radius = {:.2f}\n\n'.format(radius))
             for dsname, to_plot in v1.items():
-                f.write('##### {}'.format(dsname))
+                f.write('##### {}\n'.format(dsname))
                 img_fname = 'adversarial_{}_{}.png'.format(radius, dsname)
                 this_img_path = img_path / img_fname
                 plot_dict(to_plot)
@@ -452,6 +458,7 @@ def main(config):
             if config.single_model:
                 jsonable['each'] = single_model
                 print(single_model)
+            Path(config.json_output).parent.mkdir(exist_ok=True, parents=True)
             with open(config.json_output, 'w') as f:
                 json.dump(jsonable, indent=4, fp=f)
         if config.markdown_report:

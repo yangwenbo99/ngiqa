@@ -249,6 +249,8 @@ class Trainer(object):
         if type(desc) is str:
             if desc.upper().startswith('FGSM'):
                 return FGSMAttacker(self.config.adversarial_radius)
+            if desc.upper().startswith('PGD'):
+                return PGDAttacker(self.config.adversarial_radius)
             if desc.upper().startswith('RFGSM'):
                 repeat = round(self.config.loss_param1)
                 return RepeatedFGSMAttacker(self.config.adversarial_radius, repeat)
@@ -494,7 +496,7 @@ class Trainer(object):
             loader = self.test_loader
 
         self.model.eval()
-        print('Start evaluating')
+        # print('Start evaluating')
         ys = []
         yps = []
         yphs = []
@@ -517,6 +519,11 @@ class Trainer(object):
 
         n = len(ys)
         print('Total:', n * (n - 1) // 2)
+        all_pairs = [(i, j)
+                for i in range(n)
+                for j in range(n)
+                if ys[i] < ys[j]]
+        print('Total 2:', len(all_pairs))
         correct = [
                 (i, j)
                 for i in range(n)
@@ -668,10 +675,69 @@ class RepeatedFGSMAttacker():
         return h, l
 
 
-class LimitedLinfAttacker():
+class PGDAttacker():
     def __init__(self, tol, lr=1, iter=0, his=8):
         self._tol = tol
         self._lr = lr
+        self._num_iter = iter if iter != 0 else 10
+        self._his = his
+
+    def __call__(self, model, img, target_var, criterion):
+        tol = self._tol
+        lr = self._lr
+
+        hist_vars = [img]
+        hist_vals = [model(img)[0].clone().detach()]
+        ori_img = img.clone()
+        lower_bound = ori_img - tol
+        upper_bound = ori_img + tol
+
+        for i in range(self._num_iter):
+            img.requires_grad_(True)
+            if img.grad is not None:
+                img.grad.data.zero_()
+            output = model(img)
+            loss = criterion(target_var, output)
+            loss.backward()
+
+            yp = img.grad.clone().detach()
+            img.requires_grad_(False)
+            simg = img + lr * yp # / lyp
+            simg = torch.max(simg, lower_bound)
+            simg = torch.min(simg, upper_bound)
+            img = simg
+
+            with torch.no_grad():
+                score = model(img)[0]
+                hist_vals.append(score)
+                hist_vars.append(img)
+                if len(hist_vals) > self._his:
+                    hist_vals.pop(0)
+                    hist_vars.pop(0)
+        selected_i = 0
+        for i in range(self._his):
+            if self._lr * hist_vals[i] > self._lr * hist_vals[selected_i]:
+                selected_i = i
+        return hist_vars[selected_i]
+
+    def attack_test(self, model, input_var, target_var):
+        def pf(x, y):
+            return y.sum()
+        def nf(x, y):
+            return -y.sum()
+        prev = torch.is_grad_enabled()
+        torch.set_grad_enabled(True)
+
+        h = self(model, input_var, target_var, pf)
+        l = self(model, input_var, target_var, nf)
+
+        torch.set_grad_enabled(prev)
+        return h, l
+
+class LimitedLinfAttacker():
+    def __init__(self, tol, lr=0, iter=0, his=8):
+        self._tol = tol
+        self._lr = lr if lr != 0 else 2.5 * tol / 100
         self._num_iter = iter if iter != 0 else 10
         self._his = his
 

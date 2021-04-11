@@ -57,7 +57,7 @@ def parse_config():
 
     parser.add_argument('-n', '--normalize', action='store_true',
             help='Whether to normalise the input')
-    parser.add_argument('-v', '--verbose', action='count')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
 
     parser.add_argument('--adversarial', default=None, type=str,
             help='If set, the adversarial attack method will be used, currently only support FGSM')

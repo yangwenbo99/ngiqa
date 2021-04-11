@@ -180,3 +180,6 @@ test/
 tmp.md
 tmp.sh
 weight_reports/
+tmp*.sh
+*.tiff
+*.jpg
