@@ -94,3 +94,8 @@ To test its adversarial performance:
 ```bash
     time ./main_combined.py -v -c config_files/adv/fgsm/r1.conf --adversarial SLINF --adversarial_radius 5e-2 --eval --eval_adversarial --test_batch_size 1
 ```
+
+
+### Dataset
+
+They are available at <https://portland-my.sharepoint.com/:u:/g/personal/wenboyang3-c_my_cityu_edu_hk/EeCsecuIe_dEkEBSszywSu8BP1R1BzTRpsKUSxUP9MHCeQ?e=ndUuex>
