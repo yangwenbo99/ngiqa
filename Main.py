@@ -12,7 +12,7 @@ def parse_config():
             '-c', '--config', required=False,
             is_config_file=True, help='config file path')
 
-    parser.add_argument('-o', "--model", type=str, default='VE2EUIQA')
+    parser.add_argument('-o', "--model", type=str, required=True)
     parser.add_argument("--backbone", type=str, default='resnet18',
             help='The backbone for some models')
     parser.add_argument("--representation", type=str, default="BCNN")
