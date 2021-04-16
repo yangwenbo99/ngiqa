@@ -99,3 +99,8 @@ To test its adversarial performance:
 ### Datasets
 
 They are available at <https://portland-my.sharepoint.com/:u:/g/personal/wenboyang3-c_my_cityu_edu_hk/EeCsecuIe_dEkEBSszywSu8BP1R1BzTRpsKUSxUP9MHCeQ?e=ndUuex>
+
+
+### Trained weights
+
+Some of them are available at <https://portland-my.sharepoint.com/:f:/g/personal/wenboyang3-c_my_cityu_edu_hk/EhOm7woyeqlAhKtKW01o70UBWjO2NyqnuN--APgRxwyHNw?e=GbDmI2>
