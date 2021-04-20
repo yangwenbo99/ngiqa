@@ -1,5 +1,8 @@
 _Please read `BRIEF.md` for brief information about using this for BIQA_.
 
+The GitHub repository of this project is at <https://github.com/yangwenbo99/ngiqa>. 
+
+Another part of the project (as a fork of UNIQUE) is at <https://github.com/yangwenbo99/UNIQUE>.
 
 
 
